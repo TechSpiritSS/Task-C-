@@ -1,4 +1,5 @@
 #include <iostream>
+#include <Windows.h>
 #include <string>
 #include <cstring>
 #include <vector>
@@ -13,39 +14,55 @@ vector<pair<int, string>> tasks_done;            // <ID, Task>
 
 void file_read(string file_name)
 {
+    // Reads the file and stores the tasks in the tasks_list vector
+
     ifstream file(file_name);
-    string line;
+    string taskData;
     int id = 1;
-    while (getline(file, line))
+    while (true)
     {
-        if (line.length() > 0)
-        {
-            int priority = line[0] - '0';
-            string task = line.substr(2, line.length() - 1);
-            tasks_list.push_back(make_pair(id, make_pair(task, priority)));
-            id++;
-        }
+        if (file.eof())
+            break;
+
+        // Reads the file line by line
+        string priority;
+        // split the line into task and priority
+        getline(file, priority, ' ');
+        getline(file, taskData);
+
+        // if priority is not present, then it is not a valid task
+        if (priority == "")
+            break;
+
+        tasks_list.push_back(make_pair(id, make_pair(taskData, stoi(priority))));
+        id++;
     }
     file.close();
 }
 
 void file_write()
 {
-    FILE *fp = fopen("task.txt", "w");
-    if (fp == NULL)
+    // Writes the tasks_done vector to the file
+    fstream fp;
+    fp.open("task.txt", ios::out);
+    if (!fp)
     {
-        cout << "Error opening file";
+        cout << "File not created!";
         exit(1);
     }
+
     for (int i = 0; i < (int)tasks_list.size(); i++)
     {
-        fprintf(fp, "%d %s\n", tasks_list[i].second.second, tasks_list[i].second.first.c_str());
+        string data = to_string(tasks_list[i].second.second) + " " + tasks_list[i].second.first + "\n";
+        fp << data;
     }
-    fclose(fp);
+    fp.close();
 }
 
 void file_done_read(string file_name)
 {
+    // Reads the file and stores the tasks in the tasks_done vector
+
     ifstream file(file_name);
     string line;
     int id = 1;
@@ -55,6 +72,7 @@ void file_done_read(string file_name)
         {
             string task = line;
             tasks_done.push_back(make_pair(id, task));
+            id++;
         }
     }
     file.close();
@@ -62,37 +80,45 @@ void file_done_read(string file_name)
 
 void file_done_write()
 {
-    FILE *fp = fopen("completed.txt", "w");
-    if (fp == NULL)
+    fstream fp;
+    fp.open("completed.txt", ios::out);
+    if (!fp)
     {
-        cout << "Error opening file";
+        cout << "File not created!";
         exit(1);
     }
+
     for (int i = 0; i < (int)tasks_done.size(); i++)
     {
-        fprintf(fp, "%s\n", tasks_done[i].second.c_str());
+        string data = tasks_done[i].second;
+        fp << data << endl;
     }
-    fclose(fp);
+    fp.close();
 }
 
 void done_task(int id)
 {
+    // Adds the task to the tasks_done vector
     for (int i = 0; i < (int)tasks_list.size(); i++)
     {
         if (tasks_list[i].first == id)
         {
             tasks_done.push_back(make_pair(id, tasks_list[i].second.first));
+
+            // remove the task from the tasks_list vector
             tasks_list.erase(tasks_list.begin() + i);
             break;
         }
     }
 
+    cout << "Marked item as done." << endl;
     file_write();
     file_done_write();
 }
 
 void delete_task(int id)
 {
+    // Removes the task from the tasks_list vector
     for (int i = 0; i < (int)tasks_list.size(); i++)
     {
         if (tasks_list[i].first == id)
@@ -107,16 +133,16 @@ void delete_task(int id)
 
 void add_task(string task, int priority)
 {
-    FILE *fp = fopen("task.txt", "a");
-    if (fp == NULL)
-    {
-        cout << "Error opening file";
-        exit(1);
-    }
-    fprintf(fp, "%s %d\n", task.c_str(), priority);
-    fclose(fp);
+    // Adds the task to the tasks_list vector and writes it to the file
+    tasks_list.push_back(make_pair(tasks_list.size() + 1, make_pair(task, priority)));
+    file_write();
+    cout << "Added task: \"" << task << "\" with priority " << priority << endl;
+}
 
-    cout << "Added task: " << task << " with priority: " << priority << endl;
+bool sort_priority(pair<int, pair<string, int>> a, pair<int, pair<string, int>> b)
+{
+    // Sorts the tasks_list vector according to priority
+    return a.second.second < b.second.second;
 }
 
 void list_task()
@@ -136,22 +162,23 @@ void list_task()
 
     // ! Sorting tasks_list by priority (ascending)
     // Using Lambda function to sort tasks_list by priority alternate method can be to make bool cmp function
-    sort(tasks_list.begin(), tasks_list.end(), [](const pair<int, pair<string, int>> &a, const pair<int, pair<string, int>> &b)
-         { return a.second.second < b.second.second; });
+    sort(tasks_list.begin(), tasks_list.end(), sort_priority);
 
     // ! Fixing the ID
     int id = 1;
-    for (auto &task : tasks_list)
+    for (int i = 0; i < (int)tasks_list.size(); i++)
     {
-        task.first = id;
+        tasks_list[i].first = id;
         id++;
     }
 
     // Range based for loop to print tasks_list
     for (int i = 0; i < (int)tasks_list.size(); i++)
     {
-        cout << tasks_list[i].first << ". " << tasks_list[i].second.first << "[" << tasks_list[i].second.second << "]" << endl;
+        cout << tasks_list[i].first << ". " << tasks_list[i].second.first << " [" << tasks_list[i].second.second << "]" << endl;
     }
+
+    file_write();
 }
 
 void list_done()
@@ -193,6 +220,12 @@ void check_cmd(int argc, char *argv[])
     } // Addition Command
     else if (strcmp(argv[1], "add") == 0)
     {
+        if (argc < 4)
+        {
+            cout << "Usage :- $ ./task add 2 hello world" << endl;
+            return;
+        }
+
         add_task(argv[3], atoi(argv[2]));
     }
     else if (strcmp(argv[1], "ls") == 0)
@@ -224,7 +257,8 @@ void check_cmd(int argc, char *argv[])
 
         if (atoi(argv[2]) > (int)tasks_list.size())
         {
-            cout << "Error: no incomplete item with index" << argv[2] << " exists." << endl;
+            cout << "Error: no incomplete item with index " << argv[2] << " exists." << endl;
+            return;
         }
 
         done_task(atoi(argv[2]));
@@ -244,6 +278,17 @@ void check_cmd(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+    /*
+    // From StackOverflow
+
+    // Set console code page to UTF-8 so console known how to interpret string data
+    SetConsoleOutputCP(CP_UTF8);
+
+    // Enable buffering to prevent VS from chopping up UTF-8 byte sequences
+    setvbuf(stdout, nullptr, _IOFBF, 1000);
+    */
+    tasks_list.clear();
+    tasks_done.clear();
 
     file_read("task.txt");
     file_done_read("completed.txt");
