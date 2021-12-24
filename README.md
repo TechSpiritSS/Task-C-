@@ -91,6 +91,3 @@ Completed : 3
 2. another completed task
 3. yet another completed task
 ```
-
-### Note
-I found this Project Idea online, I have written the code myself from the scratch, only this readme file has been taken from there.
